@@ -5,10 +5,12 @@ using NBitcoin;
 using Stratis.Bitcoin.Features.SmartContracts;
 using Stratis.Bitcoin.Features.SmartContracts.Models;
 using Stratis.Bitcoin.Features.Wallet;
+using Stratis.Bitcoin.IntegrationTests.Common.EnvironmentMockUpHelpers;
 using Stratis.SmartContracts.CLR;
 using Stratis.SmartContracts.CLR.Local;
 using Stratis.SmartContracts.CLR.Serialization;
 using Stratis.SmartContracts.Networks;
+using Stratis.SmartContracts.Tests.Common;
 using Stratis.SmartContracts.Tests.Common.MockChain;
 
 namespace Stratis.SmartContracts.TestChain
@@ -19,7 +21,10 @@ namespace Stratis.SmartContracts.TestChain
         private const int AmountToPreload = 100_000;
         private static readonly Mnemonic SharedWalletMnemonic = new Mnemonic("lava frown leave wedding virtual ghost sibling able mammal liar wide wisdom");
 
+        private readonly Network network;
         private readonly PoAMockChain chain;
+        private readonly SmartContractNodeBuilder builder;
+        private readonly Func<int, CoreNode> nodeFactory;
         private readonly IMethodParameterStringSerializer paramSerializer;
 
         private MockChainNode FirstNode => this.chain.Nodes[0];
@@ -28,8 +33,13 @@ namespace Stratis.SmartContracts.TestChain
 
         public TestChain()
         {
-            this.chain = new PoAMockChain(2, SharedWalletMnemonic);
-            this.paramSerializer = new MethodParameterStringSerializer(new SmartContractsPoARegTest()); // TODO: Inject
+            var network = new SmartContractsPoARegTest();
+            this.network = network;
+            this.builder = SmartContractNodeBuilder.Create(this);
+            this.nodeFactory = (nodeIndex) => this.builder.CreateSmartContractPoANode(network, nodeIndex).Start();
+            this.chain = new PoAMockChain(2, nodeFactory, SharedWalletMnemonic);
+            this.paramSerializer = new MethodParameterStringSerializer(network); // TODO: Inject
+        
         }
 
         public TestChain Initialize()
@@ -87,9 +97,9 @@ namespace Stratis.SmartContracts.TestChain
             return this.FirstNode.GetLastBlock();
         }
 
-        public SendCreateContractResult SendCreateContractTransaction(Base58Address from, byte[] contractCode, double amount,
+        public SendCreateContractResult SendCreateContractTransaction(Base58Address from, byte[] contractCode, decimal amount,
             object[] parameters = null, ulong gasLimit = 50000, ulong gasPrice = SmartContractMempoolValidator.MinGasPrice,
-            double feeAmount = 0.01)
+            decimal feeAmount = 0.01m)
         {
             if (parameters == null)
             {
@@ -116,8 +126,8 @@ namespace Stratis.SmartContracts.TestChain
         }
 
         public SendCallContractResult SendCallContractTransaction(Base58Address from, string methodName,
-            Base58Address contractAddress, double amount, object[] parameters = null, ulong gasLimit = 50000,
-            ulong gasPrice = SmartContractMempoolValidator.MinGasPrice, double feeAmount = 0.01)
+            Base58Address contractAddress, decimal amount, object[] parameters = null, ulong gasLimit = 50000,
+            ulong gasPrice = SmartContractMempoolValidator.MinGasPrice, decimal feeAmount = 0.01m)
         {
             if (parameters == null)
             {
@@ -143,7 +153,7 @@ namespace Stratis.SmartContracts.TestChain
         }
 
         public ILocalExecutionResult CallContractMethodLocally(Base58Address from, string methodName, Base58Address contractAddress,
-            double amount, object[] parameters = null, ulong gasLimit = 50000,
+            decimal amount, object[] parameters = null, ulong gasLimit = 50000,
             ulong gasPrice = SmartContractMempoolValidator.MinGasPrice, double feeAmount = 0.01)
         {
             if (parameters == null)
